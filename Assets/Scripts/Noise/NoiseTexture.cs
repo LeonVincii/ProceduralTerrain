@@ -2,6 +2,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
+using static Unity.Mathematics.math;
 
 public static class NoiseTexture
 {
@@ -35,13 +36,15 @@ public static class NoiseTexture
         [WriteOnly]
         NativeArray<Color32> _colors;
 
-        public void Execute(int i)
+        public void Execute(int index)
         {
-            _colors[i] = new Color32
+            float normalized = unlerp(-1, 1, _noise[index]);
+
+            _colors[index] = new Color32
             {
-                r = (byte)(_noise[i] * 255),
-                g = (byte)(_noise[i] * 255),
-                b = (byte)(_noise[i] * 255),
+                r = (byte)(normalized * 255),
+                g = (byte)(normalized * 255),
+                b = (byte)(normalized * 255),
                 a = 255,
             };
         }

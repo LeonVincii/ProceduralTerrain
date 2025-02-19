@@ -1,3 +1,4 @@
+using System;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -6,17 +7,32 @@ using UnityEngine;
 [RequireComponent(typeof(MeshFilter)), RequireComponent(typeof(MeshRenderer))]
 public class NoiseVisualizer : MonoBehaviour
 {
-    [SerializeField, Range(1, 255)]
-    int _size = 64;
+    [Serializable]
+    public struct Config
+    {
+        public int size;
+        public int resolution;
 
-    [SerializeField, Range(1, 255)]
-    int _resolution = 64;
+        public TerrainNoise.Config noise;
 
-    [SerializeField, Range(.1f, 10f)]
-    float _noiseScale = 1.0f;
+        public void Validate()
+        {
+            if (size < 1)
+                size = 1;
+            else if (size > 255)
+                size = 255;
+
+            if (resolution < 1)
+                resolution = 1;
+            else if (resolution > 255)
+                resolution = 255;
+
+            noise.Validate();
+        }
+    }
 
     [SerializeField]
-    float2 _offset = float2.zero;
+    Config _config;
 
     MeshFilter _meshFilter;
     MeshRenderer _meshRenderer;
@@ -27,6 +43,8 @@ public class NoiseVisualizer : MonoBehaviour
 
     public void OnValidate()
     {
+        _config.Validate();
+
         enabled = true;
     }
 
@@ -48,7 +66,7 @@ public class NoiseVisualizer : MonoBehaviour
         if (_texture != null)
             Destroy(_texture);
 
-        _texture = new Texture2D(_resolution + 1, _resolution + 1)
+        _texture = new Texture2D(_config.resolution + 1, _config.resolution + 1)
         {
             filterMode = FilterMode.Point,
             wrapMode = TextureWrapMode.Clamp,
@@ -57,20 +75,14 @@ public class NoiseVisualizer : MonoBehaviour
         Mesh.MeshDataArray meshDataArray = Mesh.AllocateWritableMeshData(1);
         Mesh.MeshData meshData = meshDataArray[0];
 
-        JobHandle meshJob = TerrainMesh.GenerateParallel(_mesh, meshData, _size, _resolution, Vector3.zero);
+        JobHandle meshJob = TerrainMesh.GenerateParallel(
+            _mesh, meshData, _config.size, _config.resolution, Vector3.up);
 
         NativeArray<float3> positions = meshData.GetVertexData<float3>(0);
 
         var noise = new NativeArray<float>(positions.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
-        var noiseConfig = new TerrainNoise.Config
-        {
-            size = _size,
-            scale = _noiseScale,
-            offset = _offset,
-        };
-
-        JobHandle noiseJob = TerrainNoise.GenerateParallel(noiseConfig, positions, noise, meshJob);
+        JobHandle noiseJob = TerrainNoise.GenerateParallel(_config.noise, _config.size, positions, noise, meshJob);
 
         NoiseTexture.GenerateParallel(_texture, noise, noiseJob);
 

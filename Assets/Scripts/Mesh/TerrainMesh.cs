@@ -21,9 +21,9 @@ public static class TerrainMesh
         [WriteOnly]
         VertexStream_T _stream;
 
-        public void Execute(int i)
+        public void Execute(int index)
         {
-            _generator.Generate(i, _stream);
+            _generator.Generate(index, _stream);
         }
 
         public static JobHandle ScheduleParallel(
