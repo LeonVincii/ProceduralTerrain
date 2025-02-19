@@ -16,6 +16,8 @@ public struct Plane : IMeshGenerator
 
         var vert = new Vertex();
         vert.position.z = ((float)row / Resolution - .5f) * Size;
+        vert.normal.y = 1f;
+        vert.tangent.xw = float2(1f, -1f);
         vert.uv.y = (float)row / Resolution;
 
         vert.position.x = -.5f * Size;
