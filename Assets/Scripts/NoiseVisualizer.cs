@@ -13,6 +13,9 @@ public class NoiseVisualizer : MonoBehaviour
         public int size;
         public int resolution;
 
+        public bool showTerrain;
+        public Gradient heightColors;
+
         public TerrainNoise.Config noise;
 
         public void Validate()
@@ -40,6 +43,12 @@ public class NoiseVisualizer : MonoBehaviour
     Mesh _mesh;
 
     Texture2D _texture;
+
+    int _noiseTextureID = Shader.PropertyToID("_NoiseTexture");
+    int _showTerrainID = Shader.PropertyToID("_ShowTerrain");
+    int _colorCountID = Shader.PropertyToID("_ColorCount");
+    int _heightsID = Shader.PropertyToID("_Heights");
+    int _heightColorsID = Shader.PropertyToID("_HeightColors");
 
     public void OnValidate()
     {
@@ -86,7 +95,22 @@ public class NoiseVisualizer : MonoBehaviour
 
         NoiseTexture.GenerateParallel(_texture, noise, noiseJob);
 
-        _meshRenderer.material.mainTexture = _texture;
+        _meshRenderer.material.SetTexture(_noiseTextureID, _texture);
+        _meshRenderer.material.SetInt(_showTerrainID, _config.showTerrain ? 1 : 0);
+
+        GradientColorKey[] colorKeys = _config.heightColors.colorKeys;
+        float[] heights = new float[colorKeys.Length];
+        Color[] colors = new Color[colorKeys.Length];
+
+        for (int i = 0; i < colorKeys.Length; ++i)
+        {
+            heights[i] = colorKeys[i].time;
+            colors[i] = colorKeys[i].color;
+        }
+
+        _meshRenderer.material.SetInt(_colorCountID, colorKeys.Length);
+        _meshRenderer.material.SetFloatArray(_heightsID, heights);
+        _meshRenderer.material.SetColorArray(_heightColorsID, colors);
 
         noise.Dispose();
 

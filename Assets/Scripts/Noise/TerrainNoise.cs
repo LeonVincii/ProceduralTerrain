@@ -3,6 +3,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEngine;
 using UnityEngine.Assertions;
 using static Unity.Mathematics.math;
 using static Unity.Mathematics.noise;
@@ -66,9 +67,9 @@ public static class TerrainNoise
         return handle;
     }
 
-    static public void CalculateOctaveValues(
+    static void CalculateOctaveValues(
         Config config, out float maxValue, out NativeArray<float> amplitudes, out NativeArray<float> frequencies,
-        out NativeArray<float2> offsets)
+        out NativeArray<float2> octaveOffsets)
     {
         maxValue = 0f;
 
@@ -78,7 +79,7 @@ public static class TerrainNoise
         frequencies = new NativeArray<float>(
             config.octaves, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
-        offsets = new NativeArray<float2>(
+        octaveOffsets = new NativeArray<float2>(
             config.octaves, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
         float amp = 1f, freq = 1f;
@@ -91,7 +92,7 @@ public static class TerrainNoise
 
             amplitudes[i] = amp;
             frequencies[i] = freq;
-            offsets[i] = rand.NextFloat2(-100000f, 100000f);
+            octaveOffsets[i] = rand.NextFloat2(-100000f, 100000f);
 
             amp *= config.persistence;
             freq *= config.lacunarity;
@@ -128,8 +129,8 @@ public static class TerrainNoise
 
             for (int i = 0; i < _config.octaves; ++i)
             {
-                float2 offset = _octaveOffsets[i] + _positions[index].xz + _config.offset;
-                float2 sample = offset / _size / _config.scale * _frequencies[i];
+                float2 offset = _octaveOffsets[i] + (_positions[index].xz + _config.offset) / _config.scale;
+                float2 sample = offset / _size * _frequencies[i];
 
                 noise += cnoise(sample) * _amplitudes[i];
             }

@@ -42,10 +42,7 @@ public static class NoiseTexture
 
             _colors[index] = new Color32
             {
-                r = (byte)(normalized * 255),
-                g = (byte)(normalized * 255),
-                b = (byte)(normalized * 255),
-                a = 255,
+                a = (byte)(normalized * 255),
             };
         }
 
