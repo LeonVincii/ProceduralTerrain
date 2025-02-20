@@ -104,13 +104,14 @@ public static class TerrainMesh
         float EvaluateCurve(float key)
         {
             int keyCount = _curve.Length;
-            int lo = (int)ceil(key * keyCount);
-            int hi = lo + 1;
+            int lo = (int)floor(key * (keyCount - 1));
 
-            if (lo == hi)
+            if (lo == keyCount - 1)
                 return _curve[lo];
 
-            return lerp(_curve[lo], _curve[hi], unlerp(key, lo, hi));
+            int hi = lo + 1;
+
+            return lerp(_curve[lo], _curve[hi], unlerp(lo, hi, key * (keyCount - 1)));
         }
     }
 }
