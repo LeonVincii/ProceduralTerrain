@@ -140,12 +140,12 @@ public static class TerrainNoise
                 noiseValue += snoise(sample) * _amplitudes[i];
             }
 
-            noiseValue = unlerp(-_maxValue, _maxValue, noiseValue) * 2f - 1f;
+            noiseValue = unlerp(-_maxValue, _maxValue, noiseValue);
 
             if (_config.falloff)
             {
                 float distance = length(_positions[index]);
-                noiseValue = (noiseValue + 1f) * FalloffMultiplier(distance, _config.falloffDistance) - 1f;
+                noiseValue = noiseValue * FalloffMultiplier(distance, _config.falloffDistance);
             }
 
             _noise[index] = noiseValue;

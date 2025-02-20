@@ -5,7 +5,7 @@ using Unity.Mathematics;
 using UnityEngine;
 
 [RequireComponent(typeof(MeshFilter)), RequireComponent(typeof(MeshRenderer))]
-public class NoiseVisualizer : MonoBehaviour
+public class TerrainChunk : MonoBehaviour
 {
     [Serializable]
     public struct Config
@@ -15,7 +15,9 @@ public class NoiseVisualizer : MonoBehaviour
 
         public bool showTerrain;
         public Gradient heightColors;
+        public AnimationCurve heightCurve;
 
+        public TerrainMesh.Config mesh;
         public TerrainNoise.Config noise;
 
         public void Validate()
@@ -30,12 +32,18 @@ public class NoiseVisualizer : MonoBehaviour
             else if (resolution > 255)
                 resolution = 255;
 
+            mesh.Validate();
             noise.Validate();
         }
     }
 
     [SerializeField]
     Config _config;
+
+    NativeArray<float> _heightCurveSamples;
+
+    [SerializeField, Range(2, 100)]
+    int _heightCurveSamplingResolution = 100;
 
     MeshFilter _meshFilter;
     MeshRenderer _meshRenderer;
@@ -57,8 +65,16 @@ public class NoiseVisualizer : MonoBehaviour
         enabled = true;
     }
 
+    public void OnDestroy()
+    {
+        _heightCurveSamples.Dispose();
+    }
+
     public void Awake()
     {
+        _heightCurveSamples = new NativeArray<float>(
+            _heightCurveSamplingResolution, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+
         _meshFilter = GetComponent<MeshFilter>();
         _meshRenderer = GetComponent<MeshRenderer>();
 
@@ -85,13 +101,17 @@ public class NoiseVisualizer : MonoBehaviour
         Mesh.MeshData meshData = meshDataArray[0];
 
         JobHandle meshJob = TerrainMesh.GenerateParallel(
-            _mesh, meshData, _config.size, _config.resolution, Vector3.up);
+            _mesh, meshData, _config.size, _config.resolution, Vector3.up * _config.mesh.heightMultiplier);
 
         NativeArray<float3> positions = meshData.GetVertexData<float3>(0);
 
         var noise = new NativeArray<float>(positions.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
         JobHandle noiseJob = TerrainNoise.GenerateParallel(_config.noise, _config.size, positions, noise, meshJob);
+
+        SampleCurve(_config.heightCurve, _heightCurveSamplingResolution, ref _heightCurveSamples);
+
+        TerrainMesh.DisplaceParallel(_config.mesh, _heightCurveSamples, noise, positions, noiseJob);
 
         NoiseTexture.GenerateParallel(_texture, noise, noiseJob);
 
@@ -117,5 +137,14 @@ public class NoiseVisualizer : MonoBehaviour
         Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, _mesh);
 
         enabled = false;
+    }
+
+    void SampleCurve(AnimationCurve curve, int resolution, ref NativeArray<float> samples)
+    {
+        for (int i = 0; i < resolution; ++i)
+        {
+            float t = (float)i / (resolution - 1);
+            samples[i] = curve.Evaluate(t);
+        }
     }
 }

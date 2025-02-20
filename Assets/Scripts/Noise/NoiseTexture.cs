@@ -38,11 +38,9 @@ public static class NoiseTexture
 
         public void Execute(int index)
         {
-            float normalized = unlerp(-1, 1, _noise[index]);
-
             _colors[index] = new Color32
             {
-                a = (byte)(normalized * 255),
+                a = (byte)(_noise[index] * 255),
             };
         }
 
