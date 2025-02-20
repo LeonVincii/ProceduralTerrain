@@ -140,6 +140,9 @@ public class TerrainChunk : MonoBehaviour
 
         Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, _mesh);
 
+        _mesh.RecalculateNormals();
+        _mesh.RecalculateTangents();
+
         enabled = false;
     }
 
