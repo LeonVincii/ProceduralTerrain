@@ -54,6 +54,8 @@ public class TerrainChunk : MonoBehaviour
 
     int _noiseTextureID = Shader.PropertyToID("_NoiseTexture");
     int _showTerrainID = Shader.PropertyToID("_ShowTerrain");
+    int _minHeightID = Shader.PropertyToID("_MinHeight");
+    int _maxHeightID = Shader.PropertyToID("_MaxHeight");
     int _colorCountID = Shader.PropertyToID("_ColorCount");
     int _heightsID = Shader.PropertyToID("_Heights");
     int _heightColorsID = Shader.PropertyToID("_HeightColors");
@@ -117,6 +119,8 @@ public class TerrainChunk : MonoBehaviour
 
         _meshRenderer.material.SetTexture(_noiseTextureID, _texture);
         _meshRenderer.material.SetInt(_showTerrainID, _config.showTerrain ? 1 : 0);
+        _meshRenderer.material.SetFloat(_minHeightID, -_config.mesh.heightMultiplier);
+        _meshRenderer.material.SetFloat(_maxHeightID, _config.mesh.heightMultiplier);
 
         GradientColorKey[] colorKeys = _config.heightColors.colorKeys;
         float[] heights = new float[colorKeys.Length];
