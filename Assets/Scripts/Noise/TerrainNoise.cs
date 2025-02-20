@@ -21,6 +21,8 @@ public static class TerrainNoise
         public int octaves;
         public float persistence;
         public float lacunarity;
+        public bool falloff;
+        public float falloffDistance;
 
         public void Validate()
         {
@@ -44,6 +46,9 @@ public static class TerrainNoise
 
             if (lacunarity < 1f)
                 lacunarity = 1f;
+
+            if (falloffDistance < 0f)
+                falloffDistance = 0f;
         }
     }
 
@@ -125,17 +130,25 @@ public static class TerrainNoise
 
         public void Execute(int index)
         {
-            float noise = 0;
+            float noiseValue = 0;
 
             for (int i = 0; i < _config.octaves; ++i)
             {
                 float2 offset = _octaveOffsets[i] + (_positions[index].xz + _config.offset) / _config.scale;
                 float2 sample = offset / _size * _frequencies[i];
 
-                noise += cnoise(sample) * _amplitudes[i];
+                noiseValue += snoise(sample) * _amplitudes[i];
             }
 
-            _noise[index] = unlerp(-_maxValue, _maxValue, noise) * 2f - 1f;
+            noiseValue = unlerp(-_maxValue, _maxValue, noiseValue) * 2f - 1f;
+
+            if (_config.falloff)
+            {
+                float distance = length(_positions[index]);
+                noiseValue = (noiseValue + 1f) * FalloffMultiplier(distance, _config.falloffDistance) - 1f;
+            }
+
+            _noise[index] = noiseValue;
         }
 
         public static JobHandle ScheduleParallel(
@@ -155,6 +168,12 @@ public static class TerrainNoise
                 _noise = noise,
             }
             .ScheduleParallel(noise.Length, 32, dependency);
+        }
+
+        static float FalloffMultiplier(float distance, float falloffDistance)
+        {
+            float d = clamp(1 - distance / falloffDistance + .5f, 0f, 1f);
+            return pow(d, 3) / (pow(d, 3) + pow(1 - d, 3));
         }
     }
 }
