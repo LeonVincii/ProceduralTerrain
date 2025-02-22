@@ -8,7 +8,7 @@ float4 _HeightColors[_kMaxColorCount];
 
 void TerrainColor_float(float height, out float4 output)
 {
-    float height01 = Unlerp(_MinHeight, _MaxHeight, height);
+    float height01 = saturate(Unlerp(_MinHeight, _MaxHeight, height));
 
     for (int i = 0; i < _ColorCount; ++i)
     {
