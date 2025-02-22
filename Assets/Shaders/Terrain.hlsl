@@ -1,16 +1,10 @@
-static const uint _kMaxColorCount = 10;
+#include "Utils.hlsl"
 
-float _MinHeight;
-float _MaxHeight;
+static const uint _kMaxColorCount = 10;
 
 int _ColorCount;
 float _Heights[_kMaxColorCount];
 float4 _HeightColors[_kMaxColorCount];
-
-float Unlerp(float a, float b, float x)
-{
-    return (x - a) / (b - a);
-}
 
 void TerrainColor_float(float height, out float4 output)
 {
