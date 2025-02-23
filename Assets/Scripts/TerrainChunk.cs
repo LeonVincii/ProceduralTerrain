@@ -3,8 +3,9 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Assertions;
 
-public class TerrainChunk : MonoBehaviour
+public static class TerrainChunk
 {
     [Serializable]
     public struct Config
@@ -17,129 +18,93 @@ public class TerrainChunk : MonoBehaviour
         public bool showTerrain;
         public Gradient heightColors;
         public AnimationCurve heightCurve;
+        public int heightCurveResolution;
 
         public TerrainMesh.Config terrainMesh;
         public TerrainNoise.Config noise;
 
         public void Validate()
         {
-            if (size < 1)
-                size = 1;
-            else if (size > 255)
-                size = 255;
-
-            if (scale < .1f)
-                scale = .1f;
-            else if (scale > 10f)
-                scale = 10f;
-
-            if (terrainResolution < 1)
-                terrainResolution = 1;
-            else if (terrainResolution > 255)
-                terrainResolution = 255;
-
-            if (waterResolution < 1)
-                waterResolution = 1;
-            else if (waterResolution > 255)
-                waterResolution = 255;
+            size = Mathf.Clamp(size, 1, 255);
+            scale = Mathf.Clamp(scale, .1f, 10f);
+            terrainResolution = Mathf.Clamp(terrainResolution, 1, 255);
+            waterResolution = Mathf.Clamp(waterResolution, 1, 255);
+            heightCurveResolution = Mathf.Clamp(heightCurveResolution, 2, 100);
 
             terrainMesh.Validate();
             noise.Validate();
         }
     }
 
-    [SerializeField]
-    Config _config;
+    public static Material terrainMaterial;
+    public static Material waterMaterial;
 
-    NativeArray<float> _heightCurveSamples;
+    static bool _allocated = false;
 
-    [SerializeField, Range(2, 100)]
-    int _heightCurveSamplingResolution = 100;
+    static Config _config;
 
-    [SerializeField]
-    Material _terrainMaterial;
-    [SerializeField]
-    Material _waterMaterial;
+    static NativeArray<float> _heightCurveSamples;
 
-    GameObject _terrain;
-    Mesh _terrainMesh;
-    Texture2D _terrainNoiseTexture;
-    MeshFilter _terrainMeshFilter;
-    MeshRenderer _terrainMeshRenderer;
+    static int _terrainNoiseTextureID = Shader.PropertyToID("_TerrainNoiseTexture");
+    static int _showTerrainID = Shader.PropertyToID("_ShowTerrain");
+    static int _minHeightID = Shader.PropertyToID("_MinHeight");
+    static int _maxHeightID = Shader.PropertyToID("_MaxHeight");
+    static int _colorCountID = Shader.PropertyToID("_ColorCount");
+    static int _heightsID = Shader.PropertyToID("_Heights");
+    static int _heightColorsID = Shader.PropertyToID("_HeightColors");
 
-    GameObject _water;
-    Mesh _waterMesh;
-    MeshFilter _waterMeshFilter;
-    MeshRenderer _waterMeshRenderer;
+    static int _waveNormalFrequencyID = Shader.PropertyToID("_WaveNormalFrequency");
+    static int _waveNormalMoveSpeedID = Shader.PropertyToID("_WaveNormalMoveSpeed");
 
-    int _terrainNoiseTextureID = Shader.PropertyToID("_TerrainNoiseTexture");
-    int _showTerrainID = Shader.PropertyToID("_ShowTerrain");
-    int _minHeightID = Shader.PropertyToID("_MinHeight");
-    int _maxHeightID = Shader.PropertyToID("_MaxHeight");
-    int _colorCountID = Shader.PropertyToID("_ColorCount");
-    int _heightsID = Shader.PropertyToID("_Heights");
-    int _heightColorsID = Shader.PropertyToID("_HeightColors");
-
-    int _waveNormalFrequencyID = Shader.PropertyToID("_WaveNormalFrequency");
-    int _waveNormalMoveSpeedID = Shader.PropertyToID("_WaveNormalMoveSpeed");
-
-    public void OnValidate()
+    static public void Allocate(Config config)
     {
-        _config.Validate();
+        Assert.IsFalse(_allocated);
 
-        enabled = true;
+        _config = config;
+
+        _heightCurveSamples = new NativeArray<float>(
+            _config.heightCurveResolution, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+
+        SampleCurve(_config.heightCurve, _config.heightCurveResolution, ref _heightCurveSamples);
+
+        _allocated = true;
     }
 
-    public void OnDestroy()
+    static public void Dispose()
     {
-        Destroy(_terrainMesh);
-        Destroy(_terrainNoiseTexture);
-        Destroy(_terrain);
-
-        Destroy(_waterMesh);
-        Destroy(_water);
+        if (!_allocated)
+            return;
 
         _heightCurveSamples.Dispose();
     }
 
-    public void Awake()
+    static public GameObject Generate(float2 offset)
     {
-        _heightCurveSamples = new NativeArray<float>(
-            _heightCurveSamplingResolution, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        Assert.IsTrue(_allocated);
 
-        _terrain = new GameObject("Terrain");
-        _terrain.transform.SetParent(transform);
-        _terrain.AddComponent<MeshFilter>();
-        _terrain.AddComponent<MeshRenderer>();
-        _terrainMeshFilter = _terrain.GetComponent<MeshFilter>();
-        _terrainMesh = new Mesh
+        var chunk = new GameObject();
+
+        var terrain = new GameObject("Terrain");
+        terrain.transform.SetParent(chunk.transform);
+        var terrainMesh = new Mesh
         {
             name = "Terrain",
         };
-        _terrainMeshFilter.mesh = _terrainMesh;
-        _terrainMeshRenderer = _terrain.GetComponent<MeshRenderer>();
-        _terrainMeshRenderer.material = _terrainMaterial;
+        terrain.AddComponent<MeshFilter>().mesh = terrainMesh;
+        var terrainMeshRenderer = terrain.AddComponent<MeshRenderer>();
+        terrainMeshRenderer.material = terrainMaterial;
 
-        _water = new GameObject("Water");
-        _water.transform.SetParent(transform);
-        _water.AddComponent<MeshFilter>();
-        _water.AddComponent<MeshRenderer>();
-        _waterMeshFilter = _water.GetComponent<MeshFilter>();
-        _waterMesh = new Mesh
+        var water = new GameObject("Water");
+        water.transform.SetParent(chunk.transform);
+        var waterMesh = new Mesh
         {
             name = "Water",
         };
-        _waterMeshFilter.mesh = _waterMesh;
-        _waterMeshRenderer = _water.GetComponent<MeshRenderer>();
-        _waterMeshRenderer.material = _waterMaterial;
-    }
+        water.AddComponent<MeshFilter>().mesh = waterMesh;
+        var waterMeshRenderer = water.AddComponent<MeshRenderer>();
+        waterMeshRenderer.material = waterMaterial;
 
-    public void Update()
-    {
-        if (_terrainNoiseTexture != null)
-            Destroy(_terrainNoiseTexture);
-
-        _terrainNoiseTexture = new Texture2D(_config.terrainResolution + 1, _config.terrainResolution + 1)
+        var terrainNoiseTexture = new Texture2D(_config.terrainResolution + 1, _config.terrainResolution + 1)
         {
             filterMode = FilterMode.Point,
             wrapMode = TextureWrapMode.Clamp,
@@ -150,7 +115,7 @@ public class TerrainChunk : MonoBehaviour
         Mesh.MeshData waterMeshData = meshDataArray[1];
 
         JobHandle terrainMeshJob = TerrainMesh.GenerateParallel(
-            _terrainMesh, terrainMeshData, _config.size, _config.terrainResolution,
+            terrainMesh, terrainMeshData, _config.size, _config.terrainResolution,
             Vector3.up * _config.terrainMesh.heightMultiplier * _config.scale);
 
         NativeArray<float3> positions = terrainMeshData.GetVertexData<float3>(0);
@@ -158,20 +123,20 @@ public class TerrainChunk : MonoBehaviour
         var noise = new NativeArray<float>(positions.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
         JobHandle noiseJob = TerrainNoise.GenerateParallel(
-            _config.noise, _config.size, _config.scale, positions, noise, terrainMeshJob);
+            _config.noise, _config.size, _config.scale, offset, positions, noise, terrainMeshJob);
 
-        SampleCurve(_config.heightCurve, _heightCurveSamplingResolution, ref _heightCurveSamples);
+        SampleCurve(_config.heightCurve, _config.heightCurveResolution, ref _heightCurveSamples);
 
         TerrainMesh.DisplaceParallel(
             _config.terrainMesh, _config.scale, _heightCurveSamples, noise, positions, noiseJob);
 
-        NoiseTexture.GenerateParallel(_terrainNoiseTexture, noise, noiseJob);
+        NoiseTexture.GenerateParallel(terrainNoiseTexture, noise, noiseJob);
 
-        _terrainMeshRenderer.material.SetTexture(_terrainNoiseTextureID, _terrainNoiseTexture);
-        _terrainMeshRenderer.material.SetInt(_showTerrainID, _config.showTerrain ? 1 : 0);
-        _terrainMeshRenderer.material.SetFloat(
+        terrainMeshRenderer.material.SetTexture(_terrainNoiseTextureID, terrainNoiseTexture);
+        terrainMeshRenderer.material.SetInt(_showTerrainID, _config.showTerrain ? 1 : 0);
+        terrainMeshRenderer.material.SetFloat(
             _minHeightID, -_config.terrainMesh.heightMultiplier * _config.scale);
-        _terrainMeshRenderer.material.SetFloat(
+        terrainMeshRenderer.material.SetFloat(
             _maxHeightID, _config.terrainMesh.heightMultiplier * _config.scale);
 
         GradientColorKey[] colorKeys = _config.heightColors.colorKeys;
@@ -184,28 +149,28 @@ public class TerrainChunk : MonoBehaviour
             colors[i] = colorKeys[i].color;
         }
 
-        _terrainMeshRenderer.material.SetInt(_colorCountID, colorKeys.Length);
-        _terrainMeshRenderer.material.SetFloatArray(_heightsID, heights);
-        _terrainMeshRenderer.material.SetColorArray(_heightColorsID, colors);
+        terrainMeshRenderer.material.SetInt(_colorCountID, colorKeys.Length);
+        terrainMeshRenderer.material.SetFloatArray(_heightsID, heights);
+        terrainMeshRenderer.material.SetColorArray(_heightColorsID, colors);
 
         noise.Dispose();
 
         TerrainMesh.GenerateParallel(
-            _waterMesh, waterMeshData, _config.size, _config.waterResolution, Vector3.zero).Complete();
+            waterMesh, waterMeshData, _config.size, _config.waterResolution, Vector3.zero).Complete();
 
-        _waterMeshRenderer.material.SetTexture(_terrainNoiseTextureID, _terrainNoiseTexture);
-        _waterMeshRenderer.material.SetFloat(_waveNormalFrequencyID, 27.3f / _config.scale);
-        _waterMeshRenderer.material.SetVector(_waveNormalMoveSpeedID, new Vector2(.05f, .1f) * _config.scale);
+        waterMeshRenderer.material.SetTexture(_terrainNoiseTextureID, terrainNoiseTexture);
+        waterMeshRenderer.material.SetFloat(_waveNormalFrequencyID, 27.3f / _config.scale);
+        waterMeshRenderer.material.SetVector(_waveNormalMoveSpeedID, new Vector2(.05f, .1f) * _config.scale);
 
-        Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, new[] { _terrainMesh, _waterMesh });
+        Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, new[] { terrainMesh, waterMesh });
 
-        _terrainMesh.RecalculateNormals();
-        _terrainMesh.RecalculateTangents();
+        terrainMesh.RecalculateNormals();
+        terrainMesh.RecalculateTangents();
 
-        enabled = false;
+        return chunk;
     }
 
-    void SampleCurve(AnimationCurve curve, int resolution, ref NativeArray<float> samples)
+    static void SampleCurve(AnimationCurve curve, int resolution, ref NativeArray<float> samples)
     {
         for (int i = 0; i < resolution; ++i)
         {
