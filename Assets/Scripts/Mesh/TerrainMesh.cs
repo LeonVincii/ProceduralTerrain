@@ -27,10 +27,10 @@ public static class TerrainMesh
     }
 
     public static void DisplaceParallel(
-        Config config, NativeArray<float> heightCurve, NativeArray<float> noise, NativeArray<float3> positions,
-        JobHandle dependency = default)
+        Config config, float scale, NativeArray<float> heightCurve, NativeArray<float> noise,
+        NativeArray<float3> positions, JobHandle dependency = default)
     {
-        DisplaceJob.ScheduleParallel(config, heightCurve, noise, positions, dependency).Complete();
+        DisplaceJob.ScheduleParallel(config, scale, heightCurve, noise, positions, dependency).Complete();
     }
 
     [BurstCompile(FloatPrecision.Standard, FloatMode.Fast, CompileSynchronously = true)]
@@ -72,6 +72,8 @@ public static class TerrainMesh
     {
         Config _config;
 
+        float _scale;
+
         [ReadOnly]
         NativeArray<float> _curve;
 
@@ -83,17 +85,18 @@ public static class TerrainMesh
         public void Execute(int index)
         {
             float3 position = _positions[index];
-            position.y = EvaluateCurve(_noise[index]) * _config.heightMultiplier;
+            position.y = EvaluateCurve(_noise[index]) * _config.heightMultiplier * _scale;
             _positions[index] = position;
         }
 
         public static JobHandle ScheduleParallel(
-            Config config, NativeArray<float> curve, NativeArray<float> noise, NativeArray<float3> positions,
-            JobHandle dependency = default)
+            Config config, float scale, NativeArray<float> curve, NativeArray<float> noise,
+            NativeArray<float3> positions, JobHandle dependency = default)
         {
             return new DisplaceJob()
             {
                 _config = config,
+                _scale = scale,
                 _curve = curve,
                 _noise = noise,
                 _positions = positions,

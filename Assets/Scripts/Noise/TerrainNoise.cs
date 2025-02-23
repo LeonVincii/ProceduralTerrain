@@ -16,7 +16,6 @@ public static class TerrainNoise
     public struct Config
     {
         public uint seed;
-        public float scale;
         public float2 offset;
         public int octaves;
         public float persistence;
@@ -34,11 +33,6 @@ public static class TerrainNoise
             else if (octaves > 10)
                 octaves = 10;
 
-            if (scale < .1f)
-                scale = .1f;
-            else if (scale > 10f)
-                scale = 10f;
-
             if (persistence < 0f)
                 persistence = 0f;
             else if (persistence > 1f)
@@ -53,7 +47,7 @@ public static class TerrainNoise
     }
 
     static public JobHandle GenerateParallel(
-        Config config, int size, NativeArray<float3> positions, NativeArray<float> noise,
+        Config config, int size, float scale, NativeArray<float3> positions, NativeArray<float> noise,
         JobHandle dependency = default)
     {
         Assert.AreEqual(positions.Length, noise.Length);
@@ -63,7 +57,7 @@ public static class TerrainNoise
             out NativeArray<float2> octaveOffsets);
 
         JobHandle handle = Job.ScheduleParallel(
-            config, size, maxValue, amplitudes, frequencies, octaveOffsets, positions, noise, dependency);
+            config, size, scale, maxValue, amplitudes, frequencies, octaveOffsets, positions, noise, dependency);
 
         amplitudes.Dispose(handle);
         frequencies.Dispose(handle);
@@ -110,6 +104,7 @@ public static class TerrainNoise
         Config _config;
 
         int _size;
+        float _scale;
 
         float _maxValue;
 
@@ -134,7 +129,7 @@ public static class TerrainNoise
 
             for (int i = 0; i < _config.octaves; ++i)
             {
-                float2 offset = _octaveOffsets[i] + (_positions[index].xz + _config.offset) / _config.scale;
+                float2 offset = _octaveOffsets[i] + (_positions[index].xz + _config.offset) / _scale;
                 float2 sample = offset / _size * _frequencies[i];
 
                 noiseValue += snoise(sample) * _amplitudes[i];
@@ -152,14 +147,15 @@ public static class TerrainNoise
         }
 
         public static JobHandle ScheduleParallel(
-            Config config, int size, float maxValue, NativeArray<float> amplitudes, NativeArray<float> frequencies,
-            NativeArray<float2> octaveOffsets, NativeArray<float3> positions, NativeArray<float> noise,
-            JobHandle dependency = default)
+            Config config, int size, float scale, float maxValue, NativeArray<float> amplitudes,
+            NativeArray<float> frequencies, NativeArray<float2> octaveOffsets, NativeArray<float3> positions,
+            NativeArray<float> noise, JobHandle dependency = default)
         {
             return new Job
             {
                 _config = config,
                 _size = size,
+                _scale = scale,
                 _maxValue = maxValue,
                 _amplitudes = amplitudes,
                 _frequencies = frequencies,
