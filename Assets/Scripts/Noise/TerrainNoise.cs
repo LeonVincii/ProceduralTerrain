@@ -40,7 +40,7 @@ public static class TerrainNoise
     }
 
     static public JobHandle GenerateParallel(
-        Config config, int size, float scale, float2 offset, NativeArray<float3> positions, NativeArray<float> noise,
+        Config config, float scale, float2 offset, NativeArray<float3> positions, NativeArray<float> noise,
         JobHandle dependency = default)
     {
         Assert.AreEqual(positions.Length, noise.Length);
@@ -50,7 +50,7 @@ public static class TerrainNoise
             out NativeArray<float2> octaveOffsets);
 
         JobHandle handle = Job.ScheduleParallel(
-            config, size, scale, offset, maxValue, amplitudes, frequencies, octaveOffsets, positions, noise,
+            config, scale, offset, maxValue, amplitudes, frequencies, octaveOffsets, positions, noise,
             dependency);
 
         amplitudes.Dispose(handle);
@@ -97,7 +97,6 @@ public static class TerrainNoise
     {
         Config _config;
 
-        int _size;
         float _scale;
         float2 _offset;
 
@@ -125,7 +124,7 @@ public static class TerrainNoise
             for (int i = 0; i < _config.octaves; ++i)
             {
                 float2 offset = _octaveOffsets[i] + (_positions[index].xz + _offset) / _scale;
-                float2 sample = offset / _size * _frequencies[i];
+                float2 sample = offset / 255f * _frequencies[i];
 
                 noiseValue += snoise(sample) * _amplitudes[i];
             }
@@ -142,14 +141,13 @@ public static class TerrainNoise
         }
 
         public static JobHandle ScheduleParallel(
-            Config config, int size, float scale, float2 offset, float maxValue, NativeArray<float> amplitudes,
+            Config config, float scale, float2 offset, float maxValue, NativeArray<float> amplitudes,
             NativeArray<float> frequencies, NativeArray<float2> octaveOffsets, NativeArray<float3> positions,
             NativeArray<float> noise, JobHandle dependency = default)
         {
             return new Job
             {
                 _config = config,
-                _size = size,
                 _scale = scale,
                 _offset = offset,
                 _maxValue = maxValue,

@@ -110,9 +110,14 @@ public class World : MonoBehaviour
     void DestroyChunk(GameObject chunk)
     {
         var terrain = chunk.transform.GetChild(0).gameObject;
+        Destroy(terrain.GetComponent<MeshFilter>().sharedMesh);
+        Destroy(terrain.GetComponent<MeshRenderer>().sharedMaterial.GetTexture(TerrainChunk.terrainNoiseTextureID));
+        Destroy(terrain.GetComponent<MeshRenderer>().sharedMaterial);
         Destroy(terrain);
 
         var water = chunk.transform.GetChild(1).gameObject;
+        Destroy(water.GetComponent<MeshFilter>().sharedMesh);
+        Destroy(water.GetComponent<MeshRenderer>().sharedMaterial);
         Destroy(water);
 
         Destroy(chunk);
