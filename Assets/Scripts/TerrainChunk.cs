@@ -49,12 +49,10 @@ public static class TerrainChunk
     static int _showTerrainID = Shader.PropertyToID("_ShowTerrain");
     static int _minHeightID = Shader.PropertyToID("_MinHeight");
     static int _maxHeightID = Shader.PropertyToID("_MaxHeight");
+    static int _scaleID = Shader.PropertyToID("_Scale");
     static int _colorCountID = Shader.PropertyToID("_ColorCount");
     static int _heightsID = Shader.PropertyToID("_Heights");
     static int _heightColorsID = Shader.PropertyToID("_HeightColors");
-
-    static int _waveNormalFrequencyID = Shader.PropertyToID("_WaveNormalFrequency");
-    static int _waveNormalMoveSpeedID = Shader.PropertyToID("_WaveNormalMoveSpeed");
 
     static public void Allocate(Config config)
     {
@@ -158,9 +156,9 @@ public static class TerrainChunk
         TerrainMesh.GenerateParallel(
             waterMesh, waterMeshData, _config.size, _config.waterResolution, Vector3.zero).Complete();
 
+        waterMeshRenderer.material.SetFloat(_minHeightID, -_config.terrainMesh.heightMultiplier * _config.scale);
+        waterMeshRenderer.material.SetFloat(_scaleID, _config.scale);
         waterMeshRenderer.material.SetTexture(_terrainNoiseTextureID, terrainNoiseTexture);
-        waterMeshRenderer.material.SetFloat(_waveNormalFrequencyID, 27.3f / _config.scale);
-        waterMeshRenderer.material.SetVector(_waveNormalMoveSpeedID, new Vector2(.05f, .1f) * _config.scale);
 
         Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, new[] { terrainMesh, waterMesh });
 
