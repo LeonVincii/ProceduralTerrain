@@ -136,6 +136,7 @@ public static class TerrainChunk
             _minHeightID, -_config.terrainMesh.heightMultiplier * _config.scale);
         terrainMeshRenderer.material.SetFloat(
             _maxHeightID, _config.terrainMesh.heightMultiplier * _config.scale);
+        terrainMeshRenderer.material.SetFloat(_scaleID, _config.scale);
 
         GradientColorKey[] colorKeys = _config.heightColors.colorKeys;
         float[] heights = new float[colorKeys.Length];
