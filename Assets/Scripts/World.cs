@@ -16,7 +16,7 @@ public class World : MonoBehaviour
 
         public void Validate()
         {
-            drawDistance = Mathf.Clamp(drawDistance, 0, 20);
+            drawDistance = Mathf.Clamp(drawDistance, 0, 50);
 
             chunk.Validate();
         }

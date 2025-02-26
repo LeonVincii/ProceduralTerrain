@@ -1,4 +1,4 @@
-float Unlerp(float a, float b, float x)
+float SaturatedUnlerp(float a, float b, float x)
 {
-    return (x - a) / (b - a);
+    return saturate((x - a) / (b - a));
 }
