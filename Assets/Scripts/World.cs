@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -15,7 +16,7 @@ public class World : MonoBehaviour
 
         public void Validate()
         {
-            drawDistance = Mathf.Clamp(drawDistance, 0, 10);
+            drawDistance = Mathf.Clamp(drawDistance, 0, 20);
 
             chunk.Validate();
         }
@@ -28,6 +29,8 @@ public class World : MonoBehaviour
     Transform _player;
 
     Vector2Int _playerChunkCoord;
+
+    Queue<Vector2Int> _chunksToGen = new();
 
     Dictionary<Vector2Int, GameObject> _chunks = new();
 
@@ -52,6 +55,9 @@ public class World : MonoBehaviour
         TerrainChunk.Allocate(_config.chunk);
         TerrainChunk.terrainMaterial = _terrainMaterial;
         TerrainChunk.waterMaterial = _waterMaterial;
+
+        RequestChunks();
+        GenerateChunks();
     }
 
     void Update()
@@ -59,9 +65,19 @@ public class World : MonoBehaviour
         Vector2Int playerChunkCoord = Utils.ChunkCoord(_player.position, _config.chunk.size);
 
         if (playerChunkCoord != _playerChunkCoord)
+        {
             _playerChunkCoord = playerChunkCoord;
 
-        DestroyFarChunks();
+            DestroyFarChunks();
+            RequestChunks();
+        }
+
+        StartCoroutine(GenerateChunks());
+    }
+
+    void RequestChunks()
+    {
+        _chunksToGen.Clear();
 
         for (int x = -_config.drawDistance; x <= _config.drawDistance; ++x)
         {
@@ -75,16 +91,28 @@ public class World : MonoBehaviour
                 if (Vector2Int.Distance(_playerChunkCoord, chunkCoord) > _config.drawDistance)
                     continue;
 
-                Vector2 offset = Utils.ChunkOffset(chunkCoord, _config.chunk.size);
-
-                var chunk = TerrainChunk.Generate(float2(offset.x, offset.y));
-
-                chunk.name = $"Chunk {chunkCoord}";
-                chunk.transform.parent = transform;
-                chunk.transform.position = new Vector3(offset.x, 0, offset.y);
-
-                _chunks.Add(chunkCoord, chunk);
+                _chunksToGen.Enqueue(chunkCoord);
             }
+        }
+    }
+
+    IEnumerator GenerateChunks()
+    {
+        while (_chunksToGen.Count > 0)
+        {
+            Vector2Int chunkCoord = _chunksToGen.Dequeue();
+
+            Vector2 offset = Utils.ChunkOffset(chunkCoord, _config.chunk.size);
+
+            var chunk = TerrainChunk.Generate(float2(offset.x, offset.y));
+
+            chunk.name = $"Chunk {chunkCoord}";
+            chunk.transform.parent = transform;
+            chunk.transform.position = new Vector3(offset.x, 0, offset.y);
+
+            _chunks.Add(chunkCoord, chunk);
+
+            yield return null;
         }
     }
 
