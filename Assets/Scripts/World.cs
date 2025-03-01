@@ -34,6 +34,8 @@ public class World : MonoBehaviour
 
     Dictionary<Vector2Int, GameObject> _chunks = new();
 
+    Coroutine _chunkGenCR;
+
     [SerializeField]
     Material _terrainMaterial;
 
@@ -72,7 +74,7 @@ public class World : MonoBehaviour
             RequestChunks();
         }
 
-        StartCoroutine(GenerateChunks());
+        _chunkGenCR ??= StartCoroutine(GenerateChunks_CR());
     }
 
     void RequestChunks()
@@ -96,24 +98,36 @@ public class World : MonoBehaviour
         }
     }
 
-    IEnumerator GenerateChunks()
+    void GenerateChunks()
+    {
+        while (_chunksToGen.Count > 0)
+            GenerateChunk();
+    }
+
+    IEnumerator GenerateChunks_CR()
     {
         while (_chunksToGen.Count > 0)
         {
-            Vector2Int chunkCoord = _chunksToGen.Dequeue();
-
-            Vector2 offset = Utils.ChunkOffset(chunkCoord, _config.chunk.size);
-
-            var chunk = TerrainChunk.Generate(float2(offset.x, offset.y));
-
-            chunk.name = $"Chunk {chunkCoord}";
-            chunk.transform.parent = transform;
-            chunk.transform.position = new Vector3(offset.x, 0, offset.y);
-
-            _chunks.Add(chunkCoord, chunk);
-
-            yield return null;
+            GenerateChunk();
+            yield return new WaitForSecondsRealtime(.01f);
         }
+
+        _chunkGenCR = null;
+    }
+
+    void GenerateChunk()
+    {
+        Vector2Int chunkCoord = _chunksToGen.Dequeue();
+
+        Vector2 offset = Utils.ChunkOffset(chunkCoord, _config.chunk.size);
+
+        var chunk = TerrainChunk.Generate(float2(offset.x, offset.y));
+
+        chunk.name = $"Chunk {chunkCoord}";
+        chunk.transform.parent = transform;
+        chunk.transform.position = new Vector3(offset.x, 0, offset.y);
+
+        _chunks.Add(chunkCoord, chunk);
     }
 
     void DestroyFarChunks()
